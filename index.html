@@ -263,6 +263,7 @@ async function load(){
 function rawClass(code){ return codes[code] || "기타"; }
 // 화면에 보이는 반 이름 ("1-A" → "1학년 1반", "2-J" → "2학년 10반")
 function classLabel(c){
+  if (c === "발표") return "발표용 코드";
   const m = /^(\d)-([A-Z])$/.exec(String(c));
   if (!m) return String(c);
   return m[1] + "학년 " + (m[2].charCodeAt(0) - 64) + "반";
@@ -294,7 +295,8 @@ function fillSelectors(){
 }
 function fillClassOptions(){
   const g = $("gradeSel").value;
-  const classes = [...new Set(Object.values(codes))].filter(c => g === "ALL" || gradeOfClass(c) === g).sort();
+  // 발표용 코드는 반이 하나뿐이라 반 목록을 따로 보여 주지 않음
+  const classes = g === "P" ? [] : [...new Set(Object.values(codes))].filter(c => g === "ALL" || gradeOfClass(c) === g).sort();
   const cSel = $("classSel"); const prevC = cSel.value;
   const allLabel = g === "ALL" ? "전체" : gradeLabel(g);
   cSel.innerHTML = `<option value="ALL">${allLabel}</option>` + classes.map(c=>`<option value="${c}">${classLabel(c)}</option>`).join("");
