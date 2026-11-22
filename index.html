@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>마음 ON 배움 ON — 교사 대시보드</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<style>
+  :root{
+    --bg:#F2F5F7; --paper:#FFFFFF; --ink:#22303F; --mute:#6B7A8A; --line:#DCE3E9;
+    --pos:#4E9A7C; --pos-soft:#DDEFE6; --neg:#C7686B; --neg-soft:#F6E1E1; --warn:#E3A93B; --link:#2D6CB5;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Pretendard Variable",Pretendard,"Malgun Gothic",sans-serif;font-size:15px;line-height:1.5}
+  header{background:var(--paper);border-bottom:1px solid var(--line);padding:18px 32px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+  header h1{font-size:20px;font-weight:700;margin:0 auto 0 0}
+  select,button{font:inherit;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink)}
+  button{cursor:pointer}
+  button:hover{background:#F6F8FA}
+  button:disabled{opacity:.5;cursor:default}
+  main{max-width:1180px;margin:0 auto;padding:28px 32px 60px}
+  .status{color:var(--mute);margin-bottom:20px}
+  .note{font-size:13px;color:var(--mute)}
+  .alert{background:var(--neg-soft);border-left:4px solid var(--neg);border-radius:8px;padding:14px 18px;margin-bottom:20px}
+  .alert h2{margin:0 0 6px;font-size:16px;color:var(--neg)}
+  .alert.ok{background:var(--pos-soft);border-color:var(--pos)}
+  .alert.ok h2{color:var(--pos)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  section{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:20px 22px}
+  section h2{font-size:16px;margin:0 0 14px;font-weight:700}
+  .bar{display:grid;grid-template-columns:64px 1fr 32px;align-items:center;gap:10px;margin:6px 0}
+  .bar .track{height:14px;background:#EEF2F5;border-radius:7px;overflow:hidden}
+  .bar .fill{height:100%;border-radius:7px;background:var(--pos)}
+  .bar.neg .fill{background:var(--neg)}
+  .bar .n{text-align:right;color:var(--mute);font-variant-numeric:tabular-nums}
+
+  /* 변화 유형 버튼 */
+  .types{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  @media(max-width:760px){.types{grid-template-columns:1fr 1fr}}
+  button.type{border-radius:10px;padding:12px;text-align:center;border:1px solid var(--line);width:100%;transition:transform .1s, box-shadow .1s}
+  button.type:hover{transform:translateY(-2px);box-shadow:0 4px 10px rgba(0,0,0,.08)}
+  button.type.active{outline:3px solid var(--ink);outline-offset:-1px}
+  .type b{display:block;font-size:28px;font-weight:700}
+  .type span{font-size:13px;color:var(--mute)}
+  .type.pp{background:var(--pos-soft)} .type.np{background:#E6F0EA} .type.pn{background:#F9EDE3} .type.nn{background:var(--neg-soft)}
+  #typeList{margin-top:14px}
+  .typeListHead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+
+  /* 학생 버튼(칩) */
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  button.stuBtn{padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:#fff;font-weight:600;font-size:14px}
+  button.stuBtn small{font-weight:400;color:var(--mute);margin-left:4px}
+  .alert button.stuBtn{border-color:#E7B8B9}
+  .alert button.stuBtn:hover{background:#FFF0F0}
+  button.stuBtn.link{border:none;background:none;padding:0;color:var(--link);text-decoration:underline;font-size:14px}
+
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{color:var(--mute);font-weight:600}
+  td.pos{color:var(--pos);font-weight:600} td.neg{color:var(--neg);font-weight:600}
+  td.private{color:var(--mute);font-style:italic}
+  tr.negTurn td{background:#FFF7F7}
+  #login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:10}
+  #login[hidden]{display:none}
+  .loginBox{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:28px 30px;width:340px;display:flex;flex-direction:column;gap:10px}
+  .loginBox h2{margin:0 0 6px;font-size:18px}
+  .loginBox input{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px}
+  #loginMsg{color:var(--neg);font-size:13px;min-height:18px}
+  .empty{color:var(--mute);padding:20px 0;text-align:center}
+  header input{font:inherit;padding:8px 12px;border:1px solid var(--line);border-radius:8px;width:190px}
+  button.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+  button.primary:hover{background:#3A4A5C}
+  button.small{padding:4px 8px;font-size:13px}
+  .h2row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .h2row h2{margin:0}
+
+  /* AI 카드 */
+  .aiBar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:#F6F8FA;border-radius:10px}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:760px){.cards{grid-template-columns:1fr}}
+  .card{border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .card.high{border-color:var(--neg);background:#FFF7F7}
+  .card.mid{border-color:var(--warn);background:#FFFBF2}
+  .card.reviewed{box-shadow:0 0 0 3px var(--pos-soft)}
+  .card h3{margin:0 0 8px;font-size:15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .badge{font-size:12px;padding:2px 8px;border-radius:999px;background:#EEF2F5;color:var(--mute)}
+  .badge.high{background:var(--neg);color:#fff} .badge.mid{background:var(--warn);color:#fff} .badge.low{background:var(--pos-soft);color:var(--pos)}
+  .badge.sent{background:var(--pos);color:#fff}
+  .card .src{font-size:13px;color:var(--mute);margin-bottom:8px;white-space:pre-wrap}
+  .card .counsel{background:#fff;border-radius:8px;padding:10px 12px;white-space:pre-wrap;margin:8px 0}
+  .reviewLabel{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:var(--pos);cursor:pointer}
+  .reviewLabel input{width:18px;height:18px}
+
+  .wcBox{display:flex;justify-content:center;padding:10px 0}
+  .wcCircle{width:min(100%,520px);aspect-ratio:1/1;border-radius:50%;background:radial-gradient(circle at 50% 45%,#FFFFFF 0%,#F4F7F9 70%,#E9EEF2 100%);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+  .wcCircle canvas{width:100%;height:100%;display:block}
+  .wcEmpty{position:absolute;color:var(--mute)}
+  /* 4유형 전체 보내기 */
+  .bulkGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:760px){.bulkGrid{grid-template-columns:1fr}}
+  .bulkItem{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .bulkItem.pp{background:var(--pos-soft)} .bulkItem.np{background:#E6F0EA} .bulkItem.pn{background:#F9EDE3} .bulkItem.nn{background:var(--neg-soft)}
+  .bulkItem label{font-weight:600;font-size:14px;display:flex;justify-content:space-between}
+  .bulkItem textarea,#bulkCommon{width:100%;font:inherit;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:6px;background:#fff;color:var(--ink)}
+  /* 챗봇 대화 기록 */
+  .chatCard{border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:14px;background:#fff}
+  .chatCard.flag{border:2px solid var(--neg);background:#FFF7F7}
+  .chatCard.checked{opacity:.7}
+  .chatCard h3{margin:0 0 10px;font-size:15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .bubbles{display:flex;flex-direction:column;gap:6px}
+  .bub{max-width:80%;padding:8px 12px;border-radius:14px;white-space:pre-wrap;font-size:14px}
+  .bub.user{align-self:flex-end;background:#E3EEF9;border-bottom-right-radius:4px}
+  .bub.assistant{align-self:flex-start;background:#F3F1EC;border-bottom-left-radius:4px}
+
+  /* 학생 상세 창 */
+  #stuModal{position:fixed;inset:0;background:rgba(20,30,40,.45);display:flex;align-items:flex-start;justify-content:center;z-index:20;padding:40px 16px;overflow:auto}
+  #stuModal[hidden]{display:none}
+  .modalBox{background:var(--paper);border-radius:14px;max-width:880px;width:100%;padding:22px 24px;box-shadow:0 10px 40px rgba(0,0,0,.2)}
+  .modalHead{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+  .modalHead h2{margin:0 auto 0 0;font-size:20px}
+  .modalBox h3.sub{font-size:15px;margin:22px 0 10px;padding-top:14px;border-top:1px solid var(--line)}
+  .msgBox{background:#F6F8FA;border-radius:10px;padding:10px 14px;white-space:pre-wrap}
+  .aiMini{border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:14px}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.2.2/wordcloud2.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>마음 ON, 배움 ON — 교사 대시보드</h1>
+  <label>날짜 <select id="dateSel"></select></label>
+  <label>학년 <select id="gradeSel"><option value="ALL">전체</option><option value="1">1학년</option><option value="2">2학년</option><option value="P">발표용 코드</option></select></label>
+  <label>반 <select id="classSel"></select></label>
+  <button id="reload">새로고침</button>
+  <label>OpenAI 키 <input id="oaKey" type="password" placeholder="sk-..." autocomplete="off"></label>
+  <button id="saveKey">키 저장</button>
+  <button id="aiAll" class="primary">AI 분석 (전체)</button>
+  <button id="logout">로그아웃</button>
+</header>
+<div id="login">
+  <div class="loginBox">
+    <h2>교사 로그인</h2>
+    <input id="email" type="email" placeholder="이메일" autocomplete="username">
+    <input id="pw" type="password" placeholder="비밀번호" autocomplete="current-password">
+    <button id="loginBtn">로그인</button>
+    <div id="loginMsg"></div>
+  </div>
+</div>
+
+<!-- 학생 상세 창 -->
+<div id="stuModal" hidden>
+  <div class="modalBox">
+    <div class="modalHead">
+      <h2 id="stuTitle"></h2>
+      <button id="stuClose">닫기 ✕</button>
+    </div>
+    <div id="stuBody"></div>
+  </div>
+</div>
+
+<main hidden>
+  <div class="status" id="status">불러오는 중…</div>
+  <div id="alertBox"></div>
+  <div class="grid">
+    <section><h2>수업 전 감정</h2><div id="beforeBars"></div></section>
+    <section><h2>수업 후 감정</h2><div id="afterBars"></div></section>
+  </div>
+  <section style="margin-bottom:28px"><h2>변화 유형 <span class="note" style="font-weight:400">— 누르면 해당 학생이 바로 보여요</span></h2>
+    <div class="types" id="types"></div>
+    <div id="typeList"></div>
+  </section>
+  <section><div class="h2row"><h2>학생별 기록</h2><span class="note" id="tableNote"></span></div><div id="tableWrap"></div></section>
+
+  <section style="margin-top:28px"><h2>AI 성찰 분석 · 상담 초안</h2>
+    <div class="status" id="aiStatus">OpenAI 키를 저장한 뒤 "AI 분석" 버튼을 누르면 결과가 여기에 표시됩니다.</div>
+    <div class="aiBar">
+      <span class="note">초안을 읽고 고친 뒤 <b>점검 완료</b>에 체크하세요. 체크한 학생에게 한 번에 보낼 수 있어요.</span>
+      <button id="aiCheckAll" class="small">아직 안 보낸 카드 모두 점검 표시</button>
+      <button id="aiUncheckAll" class="small">점검 표시 모두 해제</button>
+      <button id="aiSendReviewed" class="primary">점검 완료 학생에게 한꺼번에 보내기</button>
+      <span class="note" id="aiSendStatus"></span>
+    </div>
+    <div class="cards" id="aiWrap"></div>
+  </section>
+
+  <section style="margin-top:28px"><h2>이 날짜·학년·반 전체에 보내기 (변화 유형별 다음 차시 멘트)</h2>
+    <div class="status">위에서 고른 날짜·학년·반의 제출 학생에게, 각자의 변화 유형에 맞는 멘트를 한 번에 보냅니다. 학생은 다음 시간 로그인할 때 "선생님의 한마디"로 보게 됩니다. 위 AI 카드에서 따로 보낸 학생은 건너뜁니다.</div>
+    <div class="bulkGrid">
+      <div class="bulkItem pp"><label>계속 긍정 <span id="bcnt_pp"></span></label><textarea id="bulk_pp" rows="3"></textarea></div>
+      <div class="bulkItem np"><label>긍정으로 전환 <span id="bcnt_np"></span></label><textarea id="bulk_np" rows="3"></textarea></div>
+      <div class="bulkItem pn"><label>부정으로 전환 <span id="bcnt_pn"></span></label><textarea id="bulk_pn" rows="3"></textarea></div>
+      <div class="bulkItem nn"><label>계속 부정 <span id="bcnt_nn"></span></label><textarea id="bulk_nn" rows="3"></textarea></div>
+    </div>
+    <div style="margin-top:12px"><b style="font-size:14px">공통 응원 한 줄</b><input id="bulkCommon" type="text"></div>
+    <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button id="bulkSave" class="small">멘트 저장</button>
+      <button id="bulkReset" class="small">기본 멘트로</button>
+      <button id="bulkSend" class="primary">지금 보는 범위 전체에 보내기</button>
+      <span class="note" id="bulkStatus"></span>
+    </div>
+  </section>
+
+  <section style="margin-top:28px"><h2>학생 챗봇 대화 기록</h2>
+    <div class="status" id="chatStatus"></div>
+    <div id="chatWrap"></div>
+  </section>
+
+  <section style="margin-top:28px"><h2>수업 키워드 워드클라우드</h2>
+    <div class="status" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      <label>날짜 <select id="wcDate"></select></label>
+      <label>학년 <select id="wcGrade"></select></label>
+      <label>반 <select id="wcClass"></select></label>
+      <button id="wcSave" class="small">PNG 저장</button>
+      <span id="wcStatus"></span>
+    </div>
+    <div class="wcBox"><div class="wcCircle" id="wcCircle"><canvas id="wcCanvas" width="1040" height="1040"></canvas><div class="wcEmpty" id="wcEmpty"></div></div></div>
+    <div id="wcTable" style="margin-top:12px"></div>
+  </section>
+</main>
+
+<script>
+const API_KEY = "AIzaSyB7ObcWPZ_fzLGH4mpFtbLCx2uRsvlrmAI";
+let idToken = null;
+const DB = "https://mind-checkin-default-rtdb.asia-southeast1.firebasedatabase.app";
+
+const BEFORE = ["설렘","기대됨","뿌듯함","편안함","걱정됨","우울함","짜증남","피곤함"];
+const AFTER  = ["이해됨","재미있음","뿌듯함","편안함","어려움","답답함","짜증남","피곤함"];
+const POS = new Set(["설렘","기대됨","뿌듯함","편안함","이해됨","재미있음"]);
+const TYPES = [
+  ["Sustained Positive","계속 긍정","pp"],
+  ["Positive Turn","긍정으로 전환","np"],
+  ["Negative Turn","부정으로 전환","pn"],
+  ["Sustained Negative","계속 부정","nn"],
+];
+
+let codes = {}, records = {}, messages = {}, chats = {};
+let typeFilter = null;   // 변화 유형 버튼으로 고른 유형
+const $ = id => document.getElementById(id);
+const escH = s => String(s ?? "").replace(/[&<>"]/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
+const typeName = k => (TYPES.find(t=>t[0]===k)||[])[1] || k || "";
+
+async function load(){
+  $("status").textContent = "불러오는 중…";
+  try{
+    const token = idToken;
+    const [c, r, m, ch] = await Promise.all([
+      fetch(DB + "/codes.json?auth=" + token).then(x=>x.json()),
+      fetch(DB + "/records.json?auth=" + token).then(x=>x.json()),
+      fetch(DB + "/messages.json?auth=" + token).then(x=>x.json()).catch(()=>({})),
+      fetch(DB + "/chats.json?auth=" + token).then(x=>x.ok ? x.json() : {}).catch(()=>({})),
+    ]);
+    codes = c || {}; records = r || {}; messages = m || {};
+    chats = (ch && !ch.error) ? ch : {};
+  }catch(e){
+    $("status").textContent = "데이터를 가져오지 못했습니다. 인터넷 연결과 DB 규칙을 확인하세요.";
+    return;
+  }
+  fillSelectors();
+  render();
+}
+
+// DB에 저장된 반 이름 ("1-A", "발표")
+function rawClass(code){ return codes[code] || "기타"; }
+// 화면에 보이는 반 이름 ("1-A" → "1학년 1반", "2-J" → "2학년 10반")
+function classLabel(c){
+  const m = /^(\d)-([A-Z])$/.exec(String(c));
+  if (!m) return String(c);
+  return m[1] + "학년 " + (m[2].charCodeAt(0) - 64) + "반";
+}
+function classOf(code){ return classLabel(rawClass(code)); }
+// 반 이름으로 학년 구하기 ("1-A" → "1", "발표" → "P")
+function gradeOfClass(c){ return c === "발표" ? "P" : String(c).split("-")[0]; }
+const gradeLabel = g => g === "P" ? "발표용 코드" : g + "학년 전체";
+function gradeOf(code){
+  const c = codes[code];
+  if (c === "발표") return "P";
+  if (c && /^\d/.test(c)) return c.split("-")[0];
+  return /^\d/.test(code) ? code[0] : "";
+}
+// 지금 보고 있는 범위 이름 (예: "1학년 전체", "1-A", "전체")
+function scopeLabel(){
+  const g = $("gradeSel").value, c = $("classSel").value;
+  if (c !== "ALL") return classLabel(c);
+  return g === "ALL" ? "전체" : gradeLabel(g);
+}
+
+function fillSelectors(){
+  const dates = Object.keys(records).sort().reverse();
+  const dSel = $("dateSel"); const prevD = dSel.value;
+  dSel.innerHTML = dates.map(d=>`<option value="${d}">${d}</option>`).join("") || `<option value="">기록 없음</option>`;
+  if (dates.includes(prevD)) dSel.value = prevD;
+
+  fillClassOptions();
+}
+function fillClassOptions(){
+  const g = $("gradeSel").value;
+  const classes = [...new Set(Object.values(codes))].filter(c => g === "ALL" || gradeOfClass(c) === g).sort();
+  const cSel = $("classSel"); const prevC = cSel.value;
+  const allLabel = g === "ALL" ? "전체" : gradeLabel(g);
+  cSel.innerHTML = `<option value="ALL">${allLabel}</option>` + classes.map(c=>`<option value="${c}">${classLabel(c)}</option>`).join("");
+  cSel.value = classes.includes(prevC) ? prevC : "ALL";
+}
+
+function inClass(code){
+  const g = $("gradeSel").value;
+  if (g !== "ALL" && gradeOf(code) !== g) return false;
+  const sel = $("classSel").value;
+  return sel === "ALL" || rawClass(code) === sel;
+}
+
+function render(){
+  const date = $("dateSel").value;
+  const day = records[date] || {};
+  const rows = Object.entries(day).filter(([code]) => inClass(code)).sort((a,b)=>a[0].localeCompare(b[0]));
+
+  const roster = Object.keys(codes).filter(inClass).length;
+  $("status").textContent = `${date || "—"} · ${scopeLabel()} · 제출 ${rows.length}명 / 등록 ${roster}명`;
+
+  renderAlert();
+  renderBars("beforeBars", BEFORE, rows.map(([,r])=>r.emotionBefore));
+  renderBars("afterBars", AFTER, rows.map(([,r])=>r.emotionAfter));
+  renderTypes(rows);
+  const tableRows = typeFilter ? rows.filter(([,r])=>r.changeType === typeFilter) : rows;
+  $("tableNote").innerHTML = typeFilter
+    ? `지금 <b>${typeName(typeFilter)}</b> 학생만 보는 중 · <button class="small" data-clear-type>모두 보기</button>`
+    : "학번을 누르면 그 학생의 기록·챗봇 대화를 한 번에 볼 수 있어요.";
+  renderTable(tableRows);
+  renderAI();
+  renderBulkCounts(rows);
+  renderChats();
+  renderWordCloud(rows);
+}
+
+/* ===== 학생 상세 창 ===== */
+function openStudent(code){
+  const recs = Object.entries(records).filter(([,day])=>day && day[code])
+    .map(([d,day])=>[d, day[code]]).sort((a,b)=>b[0].localeCompare(a[0]));
+  const chatList = Object.entries(chats || {}).filter(([,day])=>day && day[code])
+    .map(([d,day])=>[d, day[code]]).sort((a,b)=>b[0].localeCompare(a[0]));
+  const aiList = Object.entries(aiResults).filter(([,day])=>day && day[code])
+    .map(([d,day])=>[d, day[code]]).sort((a,b)=>b[0].localeCompare(a[0]));
+  const m = messages[code];
+
+  $("stuTitle").textContent = `${code} · ${classOf(code)}`;
+  let html = "";
+
+  // 1) 챗봇 대화
+  html += `<h3 class="sub" style="border-top:none;padding-top:0;margin-top:0">챗봇 대화 ${chatList.length ? chatList.length + "회" : ""}</h3>`;
+  html += chatList.length
+    ? chatList.map(([d,c])=>chatCardHtml(d, code, c, true)).join("")
+    : `<div class="note">챗봇 대화 기록이 없습니다.</div>`;
+
+  // 2) 감정 기록
+  html += `<h3 class="sub">감정 기록 ${recs.length}회 <span class="note" style="font-weight:400">(부정으로 전환은 분홍색)</span></h3>`;
+  html += recs.length ? `<table><thead><tr><th>날짜</th><th>불편</th><th>수업 전</th><th>수업 후</th><th>변화 유형</th><th>키워드</th><th>한 줄 일기</th><th>성찰</th></tr></thead><tbody>` +
+    recs.map(([d,r])=>`<tr class="${r.changeType==="Negative Turn"?"negTurn":""}">
+      <td>${d}</td><td>${escH(r.bodyPart)}</td>
+      <td class="${POS.has(r.emotionBefore)?"pos":"neg"}">${escH(r.emotionBefore)}</td>
+      <td class="${POS.has(r.emotionAfter)?"pos":"neg"}">${escH(r.emotionAfter)}</td>
+      <td>${typeName(r.changeType)}</td><td>${escH(r.keywords ?? "")}</td>
+      <td class="${r.diaryPublic?"":"private"}">${r.diaryPublic ? escH(r.diary) : "비공개"}</td>
+      <td>${escH(r.reflection)}</td></tr>`).join("") + `</tbody></table>`
+    : `<div class="note">제출 기록이 없습니다.</div>`;
+
+  // 3) AI 분석
+  if (aiList.length){
+    html += `<h3 class="sub">AI 분석</h3>` + aiList.map(([d,o])=>`<div class="aiMini">
+      <b>${d}</b> <span class="badge ${o.level==="높음"?"high":o.level==="보통"?"mid":"low"}">관심 ${escH(o.level)}</span>
+      <span class="badge">${escH(o.emotion)}</span><div>${escH(o.summary)}</div>
+      ${o.note ? `<div class="note">유의: ${escH(o.note)}</div>` : ""}</div>`).join("");
+  }
+
+  // 4) 마지막으로 보낸 한마디
+  html += `<h3 class="sub">마지막으로 보낸 선생님의 한마디</h3>`;
+  html += m ? `<div class="note">${escH(m.date)} · ${m.bulk ? "유형별 전체 보내기" : "개별 보내기"} · 관심 ${escH(m.level||"-")}</div><div class="msgBox">${escH(m.text)}</div>`
+            : `<div class="note">보낸 메시지가 없습니다.</div>`;
+
+  $("stuBody").innerHTML = html;
+  $("stuModal").hidden = false;
+  $("stuModal").scrollTop = 0;
+}
+function closeStudent(){ $("stuModal").hidden = true; }
+
+/* ===== 공통 클릭 처리 ===== */
+document.addEventListener("click", e=>{
+  const typeBtn = e.target.closest("button.type");
+  if (typeBtn){ typeFilter = (typeFilter === typeBtn.dataset.type) ? null : typeBtn.dataset.type; render(); return; }
+  if (e.target.closest("[data-clear-type]")){ typeFilter = null; render(); return; }
+  const stu = e.target.closest("button.stuBtn");
+  if (stu){ openStudent(stu.dataset.code); return; }
+  if (e.target.id === "stuModal" || e.target.closest("#stuClose")){ closeStudent(); return; }
+});
+document.addEventListener("keydown", e=>{ if (e.key === "Escape") closeStudent(); });
+
+/* ===== 키워드 워드클라우드 ===== */
+const WC_COLORS = ["#4E9A7C","#C7686B","#E3A93B","#5B7DB1","#8A63B5","#3E8E9E","#B5654A","#22303F"];
+function splitKeywords(v){
+  return String(v ?? "").split(/[,，、;\/\s]+/).map(w=>w.trim()).filter(w=>w.length >= 1 && w.length <= 20);
+}
+function syncWcSelectors(){
+  $("wcDate").innerHTML = $("dateSel").innerHTML; $("wcDate").value = $("dateSel").value;
+  $("wcGrade").innerHTML = $("gradeSel").innerHTML; $("wcGrade").value = $("gradeSel").value;
+  $("wcClass").innerHTML = $("classSel").innerHTML; $("wcClass").value = $("classSel").value;
+}
+$("wcDate").addEventListener("change", ()=>{ $("dateSel").value = $("wcDate").value; typeFilter = null; render(); });
+$("wcClass").addEventListener("change", ()=>{ $("classSel").value = $("wcClass").value; typeFilter = null; render(); });
+$("wcGrade").addEventListener("change", ()=>{ $("gradeSel").value = $("wcGrade").value; fillClassOptions(); typeFilter = null; render(); });
+function renderWordCloud(rows){
+  syncWcSelectors();
+  const label = `${$("dateSel").value} · ${scopeLabel()}`;
+  const counts = {};
+  // 한 학생이 같은 단어를 여러 칸에 적어도 1번으로 셈 (비율이 100%를 넘지 않게)
+  rows.forEach(([,r])=>[...new Set(splitKeywords(r.keywords))].forEach(w=>{ counts[w]=(counts[w]||0)+1; }));
+  const entries = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  if (!entries.length){
+    $("wcStatus").textContent = `${label} — 입력된 키워드가 없습니다.`;
+    clearCloud(); $("wcEmpty").textContent = "입력된 키워드가 없습니다."; $("wcTable").innerHTML = ""; return;
+  }
+  const max = entries[0][1], min = entries[entries.length-1][1];
+  const total = entries.reduce((a,[,n])=>a+n,0);
+  $("wcStatus").textContent = `${label} — 키워드 ${entries.length}종 · ${total}회 입력 · 제출 ${rows.length}명`;
+  $("wcEmpty").textContent = "";
+  drawCircleCloud(entries, max, min);
+  $("wcTable").innerHTML = `<table><thead><tr><th>키워드</th><th>적은 학생 수</th><th>비율</th></tr></thead><tbody>` +
+    entries.slice(0,20).map(([w,n])=>`<tr><td>${escH(w)}</td><td>${n}</td><td>${Math.round(n/rows.length*100)}%</td></tr>`).join("") +
+    `</tbody></table>`;
+}
+
+/* 원 모양 워드클라우드 (wordcloud2.js) */
+function clearCloud(){
+  const cv = $("wcCanvas"); cv.getContext("2d").clearRect(0,0,cv.width,cv.height);
+}
+function drawCircleCloud(entries, max, min){
+  const cv = $("wcCanvas");
+  clearCloud();
+  if (typeof WordCloud === "undefined"){
+    $("wcEmpty").textContent = "워드클라우드 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인하세요.";
+    return;
+  }
+  const W = cv.width;
+  const big = entries.length <= 5 ? 0.17 : entries.length <= 15 ? 0.13 : 0.10;
+  const maxPx = W * big, minPx = W * 0.035;
+  const sizeOf = n => max === min ? maxPx * 0.8 : minPx + (n - min) / (max - min) * (maxPx - minPx);
+  const colorMap = {};
+  entries.forEach(([w],i)=>{ colorMap[w] = WC_COLORS[i % WC_COLORS.length]; });
+  WordCloud(cv, {
+    list: entries.map(([w,n])=>[w,n]),
+    shape: "circle",
+    ellipticity: 1,
+    gridSize: Math.round(W / 90),
+    weightFactor: sizeOf,
+    fontFamily: '"Pretendard Variable", Pretendard, "Malgun Gothic", sans-serif',
+    fontWeight: "700",
+    color: w => colorMap[w] || "#22303F",
+    rotateRatio: 0,
+    backgroundColor: "rgba(0,0,0,0)",
+    drawOutOfBound: false,
+    shrinkToFit: true,
+    origin: [W/2, W/2]
+  });
+}
+$("wcSave").addEventListener("click", ()=>{
+  const src = $("wcCanvas"), W = src.width;
+  const out = document.createElement("canvas"); out.width = W; out.height = W;
+  const g = out.getContext("2d");
+  g.fillStyle = "#FFFFFF"; g.fillRect(0,0,W,W);
+  g.beginPath(); g.arc(W/2, W/2, W/2 - 4, 0, Math.PI*2); g.fillStyle = "#F4F7F9"; g.fill();
+  g.lineWidth = 4; g.strokeStyle = "#DCE3E9"; g.stroke();
+  g.drawImage(src, 0, 0);
+  const a = document.createElement("a");
+  a.download = `워드클라우드_${$("dateSel").value}_${scopeLabel().replace(/\s/g,"")}.png`;
+  a.href = out.toDataURL("image/png"); a.click();
+});
+
+/* ===== 변화 유형별 전체 보내기 ===== */
+const BULK_DEFAULT = {
+  pp: "오늘도 즐겁게 수업에 참여해 줘서 고마워! 그 좋은 기운을 이번 시간에도 이어가 보자.",
+  np: "지난 시간, 처음엔 마음이 무거웠는데 수업이 끝날 땐 기분이 나아졌지? 그건 네가 해낸 거야!",
+  pn: "지난 시간 수업이 조금 힘들었지? 이번 시간에는 선생님이 더 천천히, 같이 해 볼게.",
+  nn: "요즘 마음이 많이 지쳐 보여서 선생님이 신경 쓰여. 힘든 일이 있으면 언제든 이야기해 줘.",
+  common: "오늘도 함께 힘내 보자!"
+};
+const TYPE_KEY = {"Sustained Positive":"pp","Positive Turn":"np","Negative Turn":"pn","Sustained Negative":"nn"};
+function loadBulk(){
+  let saved = {};
+  try{ saved = JSON.parse(localStorage.getItem("bulkMents")||"{}"); }catch(e){}
+  ["pp","np","pn","nn"].forEach(k=>{ $("bulk_"+k).value = saved[k] ?? BULK_DEFAULT[k]; });
+  $("bulkCommon").value = saved.common ?? BULK_DEFAULT.common;
+}
+function saveBulk(){
+  const o = {}; ["pp","np","pn","nn"].forEach(k=>{ o[k] = $("bulk_"+k).value; });
+  o.common = $("bulkCommon").value;
+  localStorage.setItem("bulkMents", JSON.stringify(o));
+}
+loadBulk();
+$("bulkSave").addEventListener("click", ()=>{ saveBulk(); $("bulkStatus").textContent = "멘트를 이 브라우저에 저장했습니다."; });
+$("bulkReset").addEventListener("click", ()=>{
+  if (!confirm("기본 멘트로 되돌릴까요?")) return;
+  localStorage.removeItem("bulkMents"); loadBulk(); $("bulkStatus").textContent = "기본 멘트로 되돌렸습니다.";
+});
+function renderBulkCounts(rows){
+  const cnt = {pp:0,np:0,pn:0,nn:0};
+  rows.forEach(([,r])=>{ const k = TYPE_KEY[r.changeType]; if (k) cnt[k]++; });
+  Object.keys(cnt).forEach(k=>{ $("bcnt_"+k).textContent = cnt[k] + "명"; });
+}
+$("bulkSend").addEventListener("click", async ()=>{
+  const date = $("dateSel").value; const day = records[date] || {};
+  const rows = Object.entries(day).filter(([code])=>inClass(code));
+  if (!rows.length){ $("bulkStatus").textContent = "이 날짜·반에 제출한 학생이 없습니다."; return; }
+  saveBulk();
+  const targets = rows.filter(([code])=>{
+    const m = messages[code];
+    return !(m && m.date === date && !m.bulk); // 개별로 보낸 학생은 건너뜀
+  });
+  const skipped = rows.length - targets.length;
+  const clsLabel = scopeLabel();
+  if (!confirm(`${date} · ${clsLabel}\n${targets.length}명에게 보냅니다. (개별 발송 ${skipped}명 건너뜀)\n계속할까요?`)) return;
+  const btn = $("bulkSend"); btn.disabled = true;
+  let ok = 0, fail = 0;
+  for (const [code, r] of targets){
+    const k = TYPE_KEY[r.changeType]; if (!k){ fail++; continue; }
+    const common = $("bulkCommon").value.trim();
+    const text = $("bulk_"+k).value.trim() + (common ? "\n" + common : "");
+    const level = (k === "pp" || k === "np") ? "보통" : "높음";
+    const msg = { date, text, sentAt: new Date().toISOString(), level, bulk: true };
+    $("bulkStatus").textContent = `보내는 중… ${ok+fail+1}/${targets.length}`;
+    try{
+      const res = await fetch(DB + "/messages/" + code + ".json?auth=" + idToken, { method: "PUT", body: JSON.stringify(msg) });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      messages[code] = msg; ok++;
+    }catch(e){ fail++; console.error(code, e); }
+  }
+  btn.disabled = false;
+  $("bulkStatus").textContent = `완료 — 보냄 ${ok}명, 실패 ${fail}명, 건너뜀 ${skipped}명`;
+  renderAI();
+});
+
+/* ===== 학생 챗봇 대화 기록 ===== */
+let chatChecked = {};
+try{ chatChecked = JSON.parse(localStorage.getItem("chatChecked")||"{}"); }catch(e){}
+function chatCardHtml(date, code, c, inModal){
+  const key = date + "/" + code;
+  const turns = Array.isArray(c.turns) ? c.turns : Object.values(c.turns || {});
+  const title = inModal ? `<span class="badge">${date}</span>`
+                        : `<button class="stuBtn" data-code="${code}">${code}</button> <span class="badge">${classOf(code)}</span>`;
+  return `<div class="chatCard ${c.flagged?"flag":""} ${chatChecked[key]?"checked":""}">
+    <h3>${title}
+      ${c.flagged ? `<span class="badge high">위험 신호 — 직접 상담 필요</span>` : ""}
+      <span class="badge">수업 전 ${escH(c.before)} → 수업 후 ${escH(c.after)}</span>
+      <label style="margin-left:auto;font-size:13px;font-weight:400"><input type="checkbox" class="chatChk" data-key="${key}" ${chatChecked[key]?"checked":""}> 확인함</label>
+    </h3>
+    <div class="bubbles">${turns.map(t=>`<div class="bub ${t.role==="user"?"user":"assistant"}">${escH(t.content)}</div>`).join("")}</div>
+  </div>`;
+}
+function renderChats(){
+  const date = $("dateSel").value;
+  const day = chats[date] || {};
+  const items = Object.entries(day).filter(([c])=>inClass(c))
+    .sort((a,b)=>(b[1].flagged?1:0)-(a[1].flagged?1:0) || a[0].localeCompare(b[0]));
+  const flaggedN = items.filter(([,c])=>c.flagged).length;
+  $("chatStatus").textContent = items.length
+    ? `${date} · 챗봇 대화 ${items.length}명` + (flaggedN ? ` · 위험 신호 ${flaggedN}명 (맨 위에 표시)` : "")
+    : `${date || "—"} · 챗봇 대화 기록이 없습니다.`;
+  $("chatWrap").innerHTML = items.map(([code,c])=>chatCardHtml(date, code, c, false)).join("");
+}
+document.addEventListener("change", e=>{
+  if (!e.target.classList.contains("chatChk")) return;
+  const key = e.target.dataset.key, on = e.target.checked;
+  if (on) chatChecked[key] = true; else delete chatChecked[key];
+  localStorage.setItem("chatChecked", JSON.stringify(chatChecked));
+  document.querySelectorAll(".chatChk").forEach(cb=>{
+    if (cb.dataset.key !== key) return;
+    cb.checked = on; cb.closest(".chatCard").classList.toggle("checked", on);
+  });
+  renderAlert();
+});
+
+/* ===== 알림 (학번 버튼을 누르면 학생 상세 창) ===== */
+function renderAlert(){
+  const byStudent = {};
+  for (const [d, day] of Object.entries(records)){
+    for (const [code, r] of Object.entries(day || {})){
+      if (!inClass(code)) continue;
+      (byStudent[code] ||= []).push([d, r.changeType]);
+    }
+  }
+  const flagged = [];
+  for (const [code, list] of Object.entries(byStudent)){
+    list.sort((a,b)=>a[0].localeCompare(b[0]));
+    const last2 = list.slice(-2);
+    if (last2.length === 2 && last2.every(x=>x[1]==="Negative Turn")) flagged.push([code, last2[0][0], last2[1][0]]);
+  }
+  flagged.sort((a,b)=>a[0].localeCompare(b[0]));
+  const box = $("alertBox");
+  // 챗봇 위험 신호 (확인 안 한 것, 모든 날짜)
+  const riskChats = [];
+  for (const [d, day] of Object.entries(chats || {})){
+    for (const [code, c] of Object.entries(day || {})){
+      if (c && c.flagged && inClass(code) && !chatChecked[d + "/" + code]) riskChats.push([code, d]);
+    }
+  }
+  riskChats.sort((a,b)=>b[1].localeCompare(a[1]));
+  const riskHtml = riskChats.length ? `<div class="alert"><h2>챗봇 대화 위험 신호 ${riskChats.length}건 — 직접 상담이 필요합니다</h2>
+    <div>학번을 누르면 그 학생의 챗봇 대화와 기록을 바로 볼 수 있어요. 확인한 뒤 대화 카드의 "확인함"에 체크하세요.</div>
+    <div class="chips">${riskChats.map(([c,d])=>`<button class="stuBtn" data-code="${c}">${c}<small>${classOf(c)} · ${d}</small></button>`).join("")}</div></div>` : "";
+  if (!flagged.length){
+    box.innerHTML = riskHtml + `<div class="alert ok"><h2>2회 연속 부정 전환 학생 없음</h2><div>최근 두 번의 수업에서 연속으로 부정으로 바뀐 학생이 없습니다.</div></div>`;
+    return;
+  }
+  box.innerHTML = riskHtml + `<div class="alert"><h2>관심이 필요한 학생 ${flagged.length}명</h2>
+    <div>최근 두 번의 수업 모두 수업 후 감정이 부정으로 바뀌었습니다. 학번을 누르면 그 학생의 챗봇 대화와 기록을 바로 볼 수 있어요.</div>
+    <div class="chips">${flagged.map(([c,d1,d2])=>`<button class="stuBtn" data-code="${c}">${c}<small>${classOf(c)} · ${d1}, ${d2}</small></button>`).join("")}</div></div>`;
+}
+
+function renderBars(id, labels, values){
+  const total = values.filter(Boolean).length;
+  const counts = {}; values.forEach(v=>{ if(v) counts[v]=(counts[v]||0)+1; });
+  $(id).innerHTML = labels.map(l=>{
+    const n = counts[l]||0, w = total ? Math.round(n/total*100) : 0;
+    return `<div class="bar ${POS.has(l)?"":"neg"}"><span>${l}</span><div class="track"><div class="fill" style="width:${w}%"></div></div><span class="n">${n}</span></div>`;
+  }).join("");
+}
+
+/* ===== 변화 유형 버튼 ===== */
+function renderTypes(rows){
+  const groups = {};
+  rows.forEach(([code,r])=>{ (groups[r.changeType] ||= []).push(code); });
+  $("types").innerHTML = TYPES.map(([key,label,cls])=>
+    `<button class="type ${cls} ${typeFilter===key?"active":""}" data-type="${key}"><b>${(groups[key]||[]).length}</b><span>${label}</span></button>`).join("");
+  if (!typeFilter){
+    $("typeList").innerHTML = `<div class="note">유형을 누르면 해당 학생 목록이 나오고, 아래 "학생별 기록"도 그 유형만 보여 줘요. 한 번 더 누르면 해제돼요.</div>`;
+    return;
+  }
+  const list = (groups[typeFilter] || []).sort();
+  $("typeList").innerHTML = `<div class="typeListHead"><b>${typeName(typeFilter)}</b> ${list.length}명 <span class="note">— 학번을 누르면 학생 상세(챗봇 대화·기록)를 볼 수 있어요.</span>
+      <button class="small" data-clear-type>선택 해제</button></div>` +
+    (list.length ? `<div class="chips">${list.map(c=>{
+        const r = (records[$("dateSel").value]||{})[c] || {};
+        return `<button class="stuBtn" data-code="${c}">${c}<small>${escH(r.emotionBefore)} → ${escH(r.emotionAfter)}</small></button>`;
+      }).join("")}</div>`
+      : `<div class="empty">이 유형에 해당하는 학생이 없습니다.</div>`);
+}
+
+function renderTable(rows){
+  if (!rows.length){ $("tableWrap").innerHTML = `<div class="empty">${typeFilter ? "이 유형에 해당하는 학생이 없습니다." : "이 날짜에 제출한 학생이 없습니다."}</div>`; return; }
+  $("tableWrap").innerHTML = `<table><thead><tr>
+    <th>학번</th><th>반</th><th>불편</th><th>수업 전</th><th>수업 후</th><th>변화 유형</th><th>키워드</th><th>한 줄 일기</th><th>성찰</th><th>AI</th>
+  </tr></thead><tbody>` + rows.map(([code,r])=>`<tr>
+    <td><button class="stuBtn link" data-code="${code}">${code}</button></td><td>${classOf(code)}</td><td>${escH(r.bodyPart)}</td>
+    <td class="${POS.has(r.emotionBefore)?"pos":"neg"}">${escH(r.emotionBefore)}</td>
+    <td class="${POS.has(r.emotionAfter)?"pos":"neg"}">${escH(r.emotionAfter)}</td>
+    <td>${typeName(r.changeType)}</td><td>${escH(r.keywords ?? "")}</td>
+    <td class="${r.diaryPublic?"":"private"}">${r.diaryPublic ? escH(r.diary) : "비공개"}</td>
+    <td>${escH(r.reflection)}</td>
+    <td><button class="small aiOne" data-code="${code}">분석</button></td>
+  </tr>`).join("") + `</tbody></table>`;
+  document.querySelectorAll("#tableWrap .aiOne").forEach(b=>b.addEventListener("click", ()=>runAI([b.dataset.code])));
+}
+
+/* ===== OpenAI 감정 분류 + 상담 초안 ===== */
+const OA_URL = "https://api.openai.com/v1/chat/completions";
+const OA_MODEL = "gpt-4o-mini";
+const SYS = `당신은 한국 중학교 담임교사를 돕는 상담 보조입니다. 학생이 수업 후 남긴 짧은 글을 읽고 아래 JSON 형식으로만 답하세요. 다른 말은 쓰지 마세요.
+{"emotion":"글에서 드러나는 핵심 감정 한 단어(예: 불안, 좌절, 위축, 뿌듯함, 안정 등)",
+ "level":"낮음|보통|높음. 기준 — 높음: 자해·괴롭힘·가정 문제·심한 우울·외로움 신호가 있거나, 몸이 아프다는 표현(통증·아픔·힘듦)과 부정 감정이 함께 있거나, 수업 전과 후 감정이 모두 부정이면서 글에 힘든 내용이 있을 때. 보통: 일상적인 어려움(수업 어려움, 친구 잡담, 피곤함 등)을 호소할 때. 낮음: 별다른 어려움 없거나 긍정적일 때",
+ "summary":"글의 핵심을 교사에게 알리는 한 문장",
+ "counsel":"교사가 이 학생에게 건넬 수 있는 다정한 말 초안 3~4문장. 학생을 '너'라고 부르며 판단하거나 훈계하지 않고 공감하는 말투. 수업 내용 어려움은 구체적 도움 제안을 포함",
+ "note":"교사가 유의할 점 한 문장 (없으면 빈 문자열)"}`;
+
+let aiResults = {};
+try{ aiResults = JSON.parse(localStorage.getItem("aiResults")||"{}"); }catch(e){}
+const saveAI = () => localStorage.setItem("aiResults", JSON.stringify(aiResults));
+const oaKey = () => localStorage.getItem("oaKey") || "";
+$("oaKey").value = oaKey();
+$("saveKey").addEventListener("click", ()=>{
+  localStorage.setItem("oaKey", $("oaKey").value.trim());
+  $("aiStatus").textContent = oaKey() ? "키를 이 브라우저에 저장했습니다. 이제 AI 분석을 누르세요." : "키가 비어 있습니다.";
+});
+
+async function analyzeOne(date, code, r){
+  const parts = [];
+  if (r.reflection) parts.push("수업 성찰: " + r.reflection);
+  if (r.diary && r.diaryPublic) parts.push("한 줄 일기: " + r.diary);
+  if (!parts.length) return null;
+  const user = `학번 ${code}, 날짜 ${date}\n수업 전 감정: ${r.emotionBefore||"-"} / 수업 후 감정: ${r.emotionAfter||"-"}\n불편한 부위: ${r.bodyPart||"-"}\n\n${parts.join("\n")}`;
+  const res = await fetch(OA_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + oaKey() },
+    body: JSON.stringify({ model: OA_MODEL, temperature: 0.3, response_format: { type: "json_object" },
+      messages: [ { role: "system", content: SYS }, { role: "user", content: user } ] })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || ("HTTP " + res.status));
+  const out = JSON.parse(data.choices[0].message.content);
+  out.src = parts.join("\n");
+  // 자동 보정: 신체 불편 + 수업 후 부정 → 높음 / 전·후 모두 부정 → 최소 보통
+  const afterNeg = r.emotionAfter && !POS.has(r.emotionAfter);
+  const beforeNeg = r.emotionBefore && !POS.has(r.emotionBefore);
+  const hasPain = (r.bodyPart && r.bodyPart !== "괜찮아요" && r.bodyPart !== "아픈 곳 없어요") || /아프|아파|통증|생리/.test(out.src);
+  if (hasPain && afterNeg) out.level = "높음";
+  else if (beforeNeg && afterNeg && out.level === "낮음") out.level = "보통";
+  out.reviewed = false;
+  (aiResults[date] ||= {})[code] = out;
+  saveAI();
+  return out;
+}
+
+async function runAI(codeList){
+  if (!oaKey()){ $("aiStatus").textContent = "먼저 OpenAI 키를 입력하고 '키 저장'을 누르세요."; return; }
+  const date = $("dateSel").value; const day = records[date] || {};
+  let done = 0, skipped = 0, failed = 0;
+  for (const code of codeList){
+    const r = day[code]; if (!r) continue;
+    $("aiStatus").textContent = `분석 중… ${code} (${done+skipped+failed+1}/${codeList.length})`;
+    try{
+      const out = await analyzeOne(date, code, r);
+      if (out) done++; else skipped++;
+    }catch(e){ failed++; console.error(code, e); $("aiStatus").textContent = `${code} 분석 실패: ${e.message}`; }
+    renderAI();
+  }
+  $("aiStatus").textContent = `완료 — 분석 ${done}명, 글 없음 ${skipped}명, 실패 ${failed}명`;
+}
+
+$("aiAll").addEventListener("click", ()=>{
+  const date = $("dateSel").value; const day = records[date] || {};
+  const list = Object.keys(day).filter(inClass).filter(c => !(aiResults[date]||{})[c]).sort();
+  if (!list.length){ $("aiStatus").textContent = "이 날짜·반은 이미 모두 분석되었거나 제출 기록이 없습니다."; return; }
+  runAI(list);
+});
+
+// 오늘 날짜로 개별(AI) 메시지를 이미 보냈는지
+const sentToday = (code, date) => { const m = messages[code]; return !!(m && m.date === date && !m.bulk); };
+
+// AI 상담 초안 한 명에게 보내기
+async function sendCounsel(date, code){
+  const o = (aiResults[date]||{})[code];
+  const text = (o?.counsel || "").trim();
+  if (!text) throw new Error("보낼 내용이 비어 있습니다.");
+  const msg = { date, text, sentAt: new Date().toISOString(), level: o.level || "보통" };
+  const res = await fetch(DB + "/messages/" + code + ".json?auth=" + idToken, { method: "PUT", body: JSON.stringify(msg) });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  messages[code] = msg;
+}
+
+function aiItems(){
+  const date = $("dateSel").value;
+  const order = {"높음":0,"보통":1,"낮음":2};
+  return Object.entries(aiResults[date]||{}).filter(([c])=>inClass(c))
+    .sort((a,b)=>(order[a[1].level]??3)-(order[b[1].level]??3) || a[0].localeCompare(b[0]));
+}
+
+function updateReviewCount(){
+  const date = $("dateSel").value;
+  const items = aiItems();
+  const reviewed = items.filter(([c,o])=>o.reviewed && !sentToday(c, date)).length;
+  const sent = items.filter(([c])=>sentToday(c, date)).length;
+  $("aiSendReviewed").textContent = `점검 완료 학생에게 한꺼번에 보내기 (${reviewed}명)`;
+  $("aiSendReviewed").disabled = reviewed === 0;
+  if (items.length) $("aiSendStatus").textContent = `카드 ${items.length}개 · 보냄 ${sent}명 · 보낼 준비 ${reviewed}명`;
+  else $("aiSendStatus").textContent = "";
+}
+
+function renderAI(){
+  const date = $("dateSel").value;
+  const lv = l => l==="높음" ? "high" : l==="보통" ? "mid" : "low";
+  const items = aiItems();
+  $("aiWrap").innerHTML = items.map(([code,o])=>{
+    const sent = sentToday(code, date);
+    return `<div class="card ${lv(o.level)} ${o.reviewed && !sent ? "reviewed" : ""}" data-code="${code}">
+    <h3><button class="stuBtn" data-code="${code}">${code}</button> <span class="badge">${classOf(code)}</span>
+      <select class="lvSel small" style="padding:2px 6px;font-size:13px">
+        ${["높음","보통","낮음"].map(l=>`<option value="${l}" ${o.level===l?"selected":""}>관심 ${l}</option>`).join("")}
+      </select>
+      <span class="badge">${escH(o.emotion)}</span>
+      ${sent ? `<span class="badge sent">보냄 ✓</span>` : ""}</h3>
+    <div class="src">${escH(o.src)}</div>
+    <div><b>요약</b> ${escH(o.summary)}</div>
+    <textarea class="counsel" rows="4" style="width:100%;font:inherit;border:1px solid var(--line);color:var(--ink)">${escH(o.counsel)}</textarea>
+    ${o.note ? `<div class="note">유의: ${escH(o.note)}</div>` : ""}
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      ${sent ? "" : `<label class="reviewLabel"><input type="checkbox" class="reviewChk" ${o.reviewed?"checked":""}> 점검 완료</label>`}
+      <button class="small sendBtn">${sent ? "다시 보내기" : "이 학생만 보내기"}</button>
+      <button class="small copyBtn">초안 복사</button>
+      <button class="small aiRe">다시 분석</button>
+      <span class="note sentMark">${sent ? "보냄 ("+messages[code].date+")" : (messages[code] ? "이전 메시지: "+messages[code].date+(messages[code].bulk?" (유형별)":"") : "")}</span>
+    </div>
+  </div>`;}).join("");
+
+  document.querySelectorAll("#aiWrap .card").forEach(card=>{
+    const code = card.dataset.code;
+    const o = aiResults[date][code];
+    card.querySelector(".lvSel").addEventListener("change", e=>{
+      o.level = e.target.value; saveAI();
+      card.classList.remove("high","mid","low"); card.classList.add(lv(o.level));
+    });
+    card.querySelector("textarea").addEventListener("input", e=>{ o.counsel = e.target.value; saveAI(); });
+    const chk = card.querySelector(".reviewChk");
+    if (chk) chk.addEventListener("change", ()=>{
+      o.reviewed = chk.checked; saveAI();
+      card.classList.toggle("reviewed", chk.checked);
+      updateReviewCount();
+    });
+    card.querySelector(".copyBtn").addEventListener("click", e=>{
+      navigator.clipboard.writeText(o.counsel || ""); e.target.textContent = "복사됨";
+      setTimeout(()=>e.target.textContent="초안 복사", 1500);
+    });
+    card.querySelector(".sendBtn").addEventListener("click", async e=>{
+      const b = e.target; b.disabled = true; b.textContent = "보내는 중…";
+      try{ await sendCounsel(date, code); o.reviewed = true; saveAI(); renderAI(); }
+      catch(err){ alert("보내기 실패: " + err.message + "\nFirebase 규칙에 messages가 있는지 확인하세요."); b.disabled = false; b.textContent = "이 학생만 보내기"; }
+    });
+    card.querySelector(".aiRe").addEventListener("click", ()=>{
+      delete aiResults[date][code]; saveAI(); runAI([code]);
+    });
+  });
+  updateReviewCount();
+}
+
+$("aiCheckAll").addEventListener("click", ()=>{
+  const date = $("dateSel").value;
+  aiItems().forEach(([c,o])=>{ if (!sentToday(c, date) && (o.counsel||"").trim()) o.reviewed = true; });
+  saveAI(); renderAI();
+});
+$("aiUncheckAll").addEventListener("click", ()=>{
+  const date = $("dateSel").value;
+  aiItems().forEach(([c,o])=>{ if (!sentToday(c, date)) o.reviewed = false; });
+  saveAI(); renderAI();
+});
+$("aiSendReviewed").addEventListener("click", async ()=>{
+  const date = $("dateSel").value;
+  const targets = aiItems().filter(([c,o])=>o.reviewed && !sentToday(c, date));
+  if (!targets.length){ $("aiSendStatus").textContent = "점검 완료로 표시한 학생이 없습니다."; return; }
+  const highN = targets.filter(([,o])=>o.level==="높음").length;
+  if (!confirm(`${date}\n점검 완료한 ${targets.length}명에게 상담 초안을 보냅니다. (관심 높음 ${highN}명)\n학생은 다음 로그인 때 "선생님의 한마디"로 보게 됩니다.\n계속할까요?`)) return;
+  const btn = $("aiSendReviewed"); btn.disabled = true;
+  let ok = 0, fail = 0;
+  for (const [code] of targets){
+    $("aiSendStatus").textContent = `보내는 중… ${ok+fail+1}/${targets.length}`;
+    try{ await sendCounsel(date, code); ok++; }
+    catch(e){ fail++; console.error(code, e); }
+  }
+  renderAI();
+  $("aiSendStatus").textContent = `완료 — 보냄 ${ok}명` + (fail ? `, 실패 ${fail}명 (다시 눌러 재시도)` : "");
+});
+
+$("dateSel").addEventListener("change", ()=>{ typeFilter = null; render(); });
+$("classSel").addEventListener("change", ()=>{ typeFilter = null; render(); });
+$("gradeSel").addEventListener("change", ()=>{ fillClassOptions(); typeFilter = null; render(); });
+$("reload").addEventListener("click", load);
+function setLoggedIn(on){
+  $("login").hidden = on;
+  document.querySelector("main").hidden = !on;
+}
+$("logout").addEventListener("click", ()=>{ idToken = null; $("pw").value = ""; closeStudent(); setLoggedIn(false); });
+$("loginBtn").addEventListener("click", async ()=>{
+  $("loginMsg").textContent = "";
+  try{
+    const res = await fetch("https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=" + API_KEY, {
+      method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ email: $("email").value.trim(), password: $("pw").value, returnSecureToken: true })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.idToken) throw new Error(data.error?.message || "login failed");
+    idToken = data.idToken;
+    setLoggedIn(true);
+    load();
+  }catch(e){
+    $("loginMsg").textContent = "이메일 또는 비밀번호가 맞지 않습니다.";
+    console.error(e);
+  }
+});
+$("pw").addEventListener("keydown", e=>{ if(e.key==="Enter") $("loginBtn").click(); });
+setLoggedIn(false);
+</script>
+</body>
+</html>
