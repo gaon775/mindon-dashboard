@@ -128,7 +128,7 @@
 <body>
 <header>
   <h1>마음 ON, 배움 ON — 교사 대시보드</h1>
-  <label>날짜 <select id="dateSel"></select></label>
+  <label>주간 <select id="dateSel"></select></label>
   <label>학년 <select id="gradeSel"><option value="ALL">전체</option><option value="1">1학년</option><option value="2">2학년</option><option value="P">발표용 코드</option></select></label>
   <label>반 <select id="classSel"></select></label>
   <button id="reload">새로고침</button>
@@ -183,8 +183,8 @@
     <div class="cards" id="aiWrap"></div>
   </section>
 
-  <section style="margin-top:28px"><h2>이 날짜·학년·반 전체에 보내기 (변화 유형별 다음 차시 멘트)</h2>
-    <div class="status">위에서 고른 날짜·학년·반의 제출 학생에게, 각자의 변화 유형에 맞는 멘트를 한 번에 보냅니다. 학생은 다음 시간 로그인할 때 "선생님의 한마디"로 보게 됩니다. 위 AI 카드에서 따로 보낸 학생은 건너뜁니다.</div>
+  <section style="margin-top:28px"><h2>이 주·학년·반 전체에 보내기 (변화 유형별 다음 차시 멘트)</h2>
+    <div class="status">위에서 고른 주·학년·반의 제출 학생에게, 각자의 변화 유형에 맞는 멘트를 한 번에 보냅니다. 학생은 다음 시간 로그인할 때 "선생님의 한마디"로 보게 됩니다. 위 AI 카드에서 따로 보낸 학생은 건너뜁니다.</div>
     <div class="bulkGrid">
       <div class="bulkItem pp"><label>계속 긍정 <span id="bcnt_pp"></span></label><textarea id="bulk_pp" rows="3"></textarea></div>
       <div class="bulkItem np"><label>긍정으로 전환 <span id="bcnt_np"></span></label><textarea id="bulk_np" rows="3"></textarea></div>
@@ -207,7 +207,7 @@
 
   <section style="margin-top:28px"><h2>수업 키워드 워드클라우드</h2>
     <div class="status" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
-      <label>날짜 <select id="wcDate"></select></label>
+      <label>주간 <select id="wcDate"></select></label>
       <label>학년 <select id="wcGrade"></select></label>
       <label>반 <select id="wcClass"></select></label>
       <button id="wcSave" class="small">PNG 저장</button>
@@ -285,11 +285,34 @@ function scopeLabel(){
   return g === "ALL" ? "전체" : gradeLabel(g);
 }
 
+/* ===== 주간(월~일) 묶음 ===== */
+const pad2 = n => String(n).padStart(2,"0");
+const toStr = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+const parseD = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
+const DOW = ["일","월","화","수","목","금","토"];
+const shortD = s => { const d = parseD(s); return `${d.getMonth()+1}/${d.getDate()}(${DOW[d.getDay()]})`; };
+// 그 날짜가 속한 주의 월요일
+function weekOf(s){ const d = parseD(s); const back = (d.getDay() + 6) % 7; d.setDate(d.getDate() - back); return toStr(d); }
+function weekLabel(w){ const e = parseD(w); e.setDate(e.getDate() + 6); return `${shortD(w)} ~ ${shortD(toStr(e))}`; }
+// 지금 고른 주에 들어 있는 날짜들
+function weekDates(src){ const w = $("dateSel").value; return Object.keys(src || {}).filter(d => weekOf(d) === w).sort(); }
+// 지금 고른 주의 학생별 기록 (같은 주에 두 번 이상이면 가장 늦은 날)
+function weekRecords(){
+  const out = {};
+  for (const d of weekDates(records)) for (const [code, r] of Object.entries(records[d] || {})) out[code] = Object.assign({}, r, {_date: d});
+  return out;
+}
+function weekChats(){
+  const out = {};
+  for (const d of weekDates(chats)) for (const [code, c] of Object.entries(chats[d] || {})) out[code] = Object.assign({}, c, {_date: d});
+  return out;
+}
+
 function fillSelectors(){
-  const dates = Object.keys(records).sort().reverse();
+  const weeks = [...new Set(Object.keys(records).map(weekOf))].sort().reverse();
   const dSel = $("dateSel"); const prevD = dSel.value;
-  dSel.innerHTML = dates.map(d=>`<option value="${d}">${d}</option>`).join("") || `<option value="">기록 없음</option>`;
-  if (dates.includes(prevD)) dSel.value = prevD;
+  dSel.innerHTML = weeks.map(w=>`<option value="${w}">${weekLabel(w)}</option>`).join("") || `<option value="">기록 없음</option>`;
+  if (weeks.includes(prevD)) dSel.value = prevD;
 
   fillClassOptions();
 }
@@ -311,8 +334,8 @@ function inClass(code){
 }
 
 function render(){
-  const date = $("dateSel").value;
-  const day = records[date] || {};
+  const date = $("dateSel").value ? weekLabel($("dateSel").value) : "";
+  const day = weekRecords();
   const rows = Object.entries(day).filter(([code]) => inClass(code)).sort((a,b)=>a[0].localeCompare(b[0]));
 
   const roster = Object.keys(codes).filter(inClass).length;
@@ -330,7 +353,7 @@ function render(){
   renderAI();
   renderBulkCounts(rows);
   renderChats();
-  renderWordCloud(rows);
+  renderWordCloud();
 }
 
 /* ===== 학생 상세 창 ===== */
@@ -399,17 +422,35 @@ const WC_COLORS = ["#4E9A7C","#C7686B","#E3A93B","#5B7DB1","#8A63B5","#3E8E9E","
 function splitKeywords(v){
   return String(v ?? "").split(/[,，、;\/\s]+/).map(w=>w.trim()).filter(w=>w.length >= 1 && w.length <= 20);
 }
+// 워드클라우드는 학년별로만 모아 봄 (1학년·2학년 내용이 섞이지 않게)
+let wcGradeVal = "1", wcClassVal = "ALL";
 function syncWcSelectors(){
   $("wcDate").innerHTML = $("dateSel").innerHTML; $("wcDate").value = $("dateSel").value;
-  $("wcGrade").innerHTML = $("gradeSel").innerHTML; $("wcGrade").value = $("gradeSel").value;
-  $("wcClass").innerHTML = $("classSel").innerHTML; $("wcClass").value = $("classSel").value;
+  // 위에서 학년을 골랐으면 그 학년을 따라가고, "전체"이면 워드클라우드에서 고른 학년 유지
+  const g = $("gradeSel").value;
+  if (g !== "ALL" && g !== wcGradeVal){ wcGradeVal = g; wcClassVal = "ALL"; }
+  if (g !== "ALL" && $("classSel").value !== "ALL") wcClassVal = $("classSel").value;
+  $("wcGrade").innerHTML = `<option value="1">1학년</option><option value="2">2학년</option><option value="P">발표용 코드</option>`;
+  $("wcGrade").value = wcGradeVal;
+  const classes = wcGradeVal === "P" ? [] : [...new Set(Object.values(codes))].filter(c => gradeOfClass(c) === wcGradeVal).sort();
+  $("wcClass").innerHTML = `<option value="ALL">${gradeLabel(wcGradeVal)}</option>` + classes.map(c=>`<option value="${c}">${classLabel(c)}</option>`).join("");
+  if (!classes.includes(wcClassVal)) wcClassVal = "ALL";
+  $("wcClass").value = wcClassVal;
 }
+function wcRows(){
+  return Object.entries(weekRecords()).filter(([code])=>{
+    if (gradeOf(code) !== wcGradeVal) return false;
+    return wcClassVal === "ALL" || rawClass(code) === wcClassVal;
+  });
+}
+function wcScopeLabel(){ return wcClassVal === "ALL" ? gradeLabel(wcGradeVal) : classLabel(wcClassVal); }
 $("wcDate").addEventListener("change", ()=>{ $("dateSel").value = $("wcDate").value; typeFilter = null; render(); });
-$("wcClass").addEventListener("change", ()=>{ $("classSel").value = $("wcClass").value; typeFilter = null; render(); });
-$("wcGrade").addEventListener("change", ()=>{ $("gradeSel").value = $("wcGrade").value; fillClassOptions(); typeFilter = null; render(); });
-function renderWordCloud(rows){
+$("wcClass").addEventListener("change", ()=>{ wcClassVal = $("wcClass").value; renderWordCloud(); });
+$("wcGrade").addEventListener("change", ()=>{ wcGradeVal = $("wcGrade").value; wcClassVal = "ALL"; renderWordCloud(); });
+function renderWordCloud(){
   syncWcSelectors();
-  const label = `${$("dateSel").value} · ${scopeLabel()}`;
+  const rows = wcRows();
+  const label = `${$("dateSel").value ? weekLabel($("dateSel").value) : "—"} · ${wcScopeLabel()}`;
   const counts = {};
   // 한 학생이 같은 단어를 여러 칸에 적어도 1번으로 셈 (비율이 100%를 넘지 않게)
   rows.forEach(([,r])=>[...new Set(splitKeywords(r.keywords))].forEach(w=>{ counts[w]=(counts[w]||0)+1; }));
@@ -470,7 +511,7 @@ $("wcSave").addEventListener("click", ()=>{
   g.lineWidth = 4; g.strokeStyle = "#DCE3E9"; g.stroke();
   g.drawImage(src, 0, 0);
   const a = document.createElement("a");
-  a.download = `워드클라우드_${$("dateSel").value}_${scopeLabel().replace(/\s/g,"")}.png`;
+  a.download = `워드클라우드_${$("dateSel").value}주_${wcScopeLabel().replace(/\s/g,"")}.png`;
   a.href = out.toDataURL("image/png"); a.click();
 });
 
@@ -506,13 +547,13 @@ function renderBulkCounts(rows){
   Object.keys(cnt).forEach(k=>{ $("bcnt_"+k).textContent = cnt[k] + "명"; });
 }
 $("bulkSend").addEventListener("click", async ()=>{
-  const date = $("dateSel").value; const day = records[date] || {};
+  const date = weekLabel($("dateSel").value); const day = weekRecords();
   const rows = Object.entries(day).filter(([code])=>inClass(code));
-  if (!rows.length){ $("bulkStatus").textContent = "이 날짜·반에 제출한 학생이 없습니다."; return; }
+  if (!rows.length){ $("bulkStatus").textContent = "이 주·반에 제출한 학생이 없습니다."; return; }
   saveBulk();
-  const targets = rows.filter(([code])=>{
+  const targets = rows.filter(([code, r])=>{
     const m = messages[code];
-    return !(m && m.date === date && !m.bulk); // 개별로 보낸 학생은 건너뜀
+    return !(m && m.date === r._date && !m.bulk); // 개별로 보낸 학생은 건너뜀
   });
   const skipped = rows.length - targets.length;
   const clsLabel = scopeLabel();
@@ -524,7 +565,7 @@ $("bulkSend").addEventListener("click", async ()=>{
     const common = $("bulkCommon").value.trim();
     const text = $("bulk_"+k).value.trim() + (common ? "\n" + common : "");
     const level = (k === "pp" || k === "np") ? "보통" : "높음";
-    const msg = { date, text, sentAt: new Date().toISOString(), level, bulk: true };
+    const msg = { date: r._date, text, sentAt: new Date().toISOString(), level, bulk: true };
     $("bulkStatus").textContent = `보내는 중… ${ok+fail+1}/${targets.length}`;
     try{
       const res = await fetch(DB + "/messages/" + code + ".json?auth=" + idToken, { method: "PUT", body: JSON.stringify(msg) });
@@ -544,7 +585,7 @@ function chatCardHtml(date, code, c, inModal){
   const key = date + "/" + code;
   const turns = Array.isArray(c.turns) ? c.turns : Object.values(c.turns || {});
   const title = inModal ? `<span class="badge">${date}</span>`
-                        : `<button class="stuBtn" data-code="${code}">${code}</button> <span class="badge">${classOf(code)}</span>`;
+                        : `<button class="stuBtn" data-code="${code}">${code}</button> <span class="badge">${classOf(code)}</span> <span class="badge">${shortD(date)}</span>`;
   return `<div class="chatCard ${c.flagged?"flag":""} ${chatChecked[key]?"checked":""}">
     <h3>${title}
       ${c.flagged ? `<span class="badge high">위험 신호 — 직접 상담 필요</span>` : ""}
@@ -555,15 +596,15 @@ function chatCardHtml(date, code, c, inModal){
   </div>`;
 }
 function renderChats(){
-  const date = $("dateSel").value;
-  const day = chats[date] || {};
+  const date = $("dateSel").value ? weekLabel($("dateSel").value) : "";
+  const day = weekChats();
   const items = Object.entries(day).filter(([c])=>inClass(c))
     .sort((a,b)=>(b[1].flagged?1:0)-(a[1].flagged?1:0) || a[0].localeCompare(b[0]));
   const flaggedN = items.filter(([,c])=>c.flagged).length;
   $("chatStatus").textContent = items.length
     ? `${date} · 챗봇 대화 ${items.length}명` + (flaggedN ? ` · 위험 신호 ${flaggedN}명 (맨 위에 표시)` : "")
     : `${date || "—"} · 챗봇 대화 기록이 없습니다.`;
-  $("chatWrap").innerHTML = items.map(([code,c])=>chatCardHtml(date, code, c, false)).join("");
+  $("chatWrap").innerHTML = items.map(([code,c])=>chatCardHtml(c._date, code, c, false)).join("");
 }
 document.addEventListener("change", e=>{
   if (!e.target.classList.contains("chatChk")) return;
@@ -637,18 +678,18 @@ function renderTypes(rows){
   $("typeList").innerHTML = `<div class="typeListHead"><b>${typeName(typeFilter)}</b> ${list.length}명 <span class="note">— 학번을 누르면 학생 상세(챗봇 대화·기록)를 볼 수 있어요.</span>
       <button class="small" data-clear-type>선택 해제</button></div>` +
     (list.length ? `<div class="chips">${list.map(c=>{
-        const r = (records[$("dateSel").value]||{})[c] || {};
+        const r = weekRecords()[c] || {};
         return `<button class="stuBtn" data-code="${c}">${c}<small>${escH(r.emotionBefore)} → ${escH(r.emotionAfter)}</small></button>`;
       }).join("")}</div>`
       : `<div class="empty">이 유형에 해당하는 학생이 없습니다.</div>`);
 }
 
 function renderTable(rows){
-  if (!rows.length){ $("tableWrap").innerHTML = `<div class="empty">${typeFilter ? "이 유형에 해당하는 학생이 없습니다." : "이 날짜에 제출한 학생이 없습니다."}</div>`; return; }
+  if (!rows.length){ $("tableWrap").innerHTML = `<div class="empty">${typeFilter ? "이 유형에 해당하는 학생이 없습니다." : "이 주에 제출한 학생이 없습니다."}</div>`; return; }
   $("tableWrap").innerHTML = `<table><thead><tr>
-    <th>학번</th><th>반</th><th>불편</th><th>수업 전</th><th>수업 후</th><th>변화 유형</th><th>키워드</th><th>한 줄 일기</th><th>성찰</th><th>AI</th>
+    <th>학번</th><th>반</th><th>날짜</th><th>불편</th><th>수업 전</th><th>수업 후</th><th>변화 유형</th><th>키워드</th><th>한 줄 일기</th><th>성찰</th><th>AI</th>
   </tr></thead><tbody>` + rows.map(([code,r])=>`<tr>
-    <td><button class="stuBtn link" data-code="${code}">${code}</button></td><td>${classOf(code)}</td><td>${escH(r.bodyPart)}</td>
+    <td><button class="stuBtn link" data-code="${code}">${code}</button></td><td>${classOf(code)}</td><td>${shortD(r._date)}</td><td>${escH(r.bodyPart)}</td>
     <td class="${POS.has(r.emotionBefore)?"pos":"neg"}">${escH(r.emotionBefore)}</td>
     <td class="${POS.has(r.emotionAfter)?"pos":"neg"}">${escH(r.emotionAfter)}</td>
     <td>${typeName(r.changeType)}</td><td>${escH(r.keywords ?? "")}</td>
@@ -709,13 +750,13 @@ async function analyzeOne(date, code, r){
 
 async function runAI(codeList){
   if (!oaKey()){ $("aiStatus").textContent = "먼저 OpenAI 키를 입력하고 '키 저장'을 누르세요."; return; }
-  const date = $("dateSel").value; const day = records[date] || {};
+  const day = weekRecords();
   let done = 0, skipped = 0, failed = 0;
   for (const code of codeList){
     const r = day[code]; if (!r) continue;
     $("aiStatus").textContent = `분석 중… ${code} (${done+skipped+failed+1}/${codeList.length})`;
     try{
-      const out = await analyzeOne(date, code, r);
+      const out = await analyzeOne(r._date, code, r);
       if (out) done++; else skipped++;
     }catch(e){ failed++; console.error(code, e); $("aiStatus").textContent = `${code} 분석 실패: ${e.message}`; }
     renderAI();
@@ -724,13 +765,13 @@ async function runAI(codeList){
 }
 
 $("aiAll").addEventListener("click", ()=>{
-  const date = $("dateSel").value; const day = records[date] || {};
-  const list = Object.keys(day).filter(inClass).filter(c => !(aiResults[date]||{})[c]).sort();
-  if (!list.length){ $("aiStatus").textContent = "이 날짜·반은 이미 모두 분석되었거나 제출 기록이 없습니다."; return; }
+  const day = weekRecords();
+  const list = Object.keys(day).filter(inClass).filter(c => !(aiResults[day[c]._date]||{})[c]).sort();
+  if (!list.length){ $("aiStatus").textContent = "이 주·반은 이미 모두 분석되었거나 제출 기록이 없습니다."; return; }
   runAI(list);
 });
 
-// 오늘 날짜로 개별(AI) 메시지를 이미 보냈는지
+// 그 수업 날짜로 개별(AI) 메시지를 이미 보냈는지
 const sentToday = (code, date) => { const m = messages[code]; return !!(m && m.date === date && !m.bulk); };
 
 // AI 상담 초안 한 명에게 보내기
@@ -744,18 +785,20 @@ async function sendCounsel(date, code){
   messages[code] = msg;
 }
 
+// 지금 고른 주의 AI 카드 목록: [학번, 결과, 수업 날짜]
 function aiItems(){
-  const date = $("dateSel").value;
   const order = {"높음":0,"보통":1,"낮음":2};
-  return Object.entries(aiResults[date]||{}).filter(([c])=>inClass(c))
-    .sort((a,b)=>(order[a[1].level]??3)-(order[b[1].level]??3) || a[0].localeCompare(b[0]));
+  const items = [];
+  for (const d of weekDates(aiResults)){
+    for (const [c, o] of Object.entries(aiResults[d] || {})) if (inClass(c)) items.push([c, o, d]);
+  }
+  return items.sort((a,b)=>(order[a[1].level]??3)-(order[b[1].level]??3) || a[0].localeCompare(b[0]) || a[2].localeCompare(b[2]));
 }
 
 function updateReviewCount(){
-  const date = $("dateSel").value;
   const items = aiItems();
-  const reviewed = items.filter(([c,o])=>o.reviewed && !sentToday(c, date)).length;
-  const sent = items.filter(([c])=>sentToday(c, date)).length;
+  const reviewed = items.filter(([c,o,d])=>o.reviewed && !sentToday(c, d)).length;
+  const sent = items.filter(([c,,d])=>sentToday(c, d)).length;
   $("aiSendReviewed").textContent = `점검 완료 학생에게 한꺼번에 보내기 (${reviewed}명)`;
   $("aiSendReviewed").disabled = reviewed === 0;
   if (items.length) $("aiSendStatus").textContent = `카드 ${items.length}개 · 보냄 ${sent}명 · 보낼 준비 ${reviewed}명`;
@@ -763,13 +806,13 @@ function updateReviewCount(){
 }
 
 function renderAI(){
-  const date = $("dateSel").value;
   const lv = l => l==="높음" ? "high" : l==="보통" ? "mid" : "low";
   const items = aiItems();
-  $("aiWrap").innerHTML = items.map(([code,o])=>{
+  $("aiWrap").innerHTML = items.map(([code,o,date])=>{
     const sent = sentToday(code, date);
-    return `<div class="card ${lv(o.level)} ${o.reviewed && !sent ? "reviewed" : ""}" data-code="${code}">
+    return `<div class="card ${lv(o.level)} ${o.reviewed && !sent ? "reviewed" : ""}" data-code="${code}" data-date="${date}">
     <h3><button class="stuBtn" data-code="${code}">${code}</button> <span class="badge">${classOf(code)}</span>
+      <span class="badge">${shortD(date)}</span>
       <select class="lvSel small" style="padding:2px 6px;font-size:13px">
         ${["높음","보통","낮음"].map(l=>`<option value="${l}" ${o.level===l?"selected":""}>관심 ${l}</option>`).join("")}
       </select>
@@ -789,7 +832,7 @@ function renderAI(){
   </div>`;}).join("");
 
   document.querySelectorAll("#aiWrap .card").forEach(card=>{
-    const code = card.dataset.code;
+    const code = card.dataset.code, date = card.dataset.date;
     const o = aiResults[date][code];
     card.querySelector(".lvSel").addEventListener("change", e=>{
       o.level = e.target.value; saveAI();
@@ -819,24 +862,21 @@ function renderAI(){
 }
 
 $("aiCheckAll").addEventListener("click", ()=>{
-  const date = $("dateSel").value;
-  aiItems().forEach(([c,o])=>{ if (!sentToday(c, date) && (o.counsel||"").trim()) o.reviewed = true; });
+  aiItems().forEach(([c,o,d])=>{ if (!sentToday(c, d) && (o.counsel||"").trim()) o.reviewed = true; });
   saveAI(); renderAI();
 });
 $("aiUncheckAll").addEventListener("click", ()=>{
-  const date = $("dateSel").value;
-  aiItems().forEach(([c,o])=>{ if (!sentToday(c, date)) o.reviewed = false; });
+  aiItems().forEach(([c,o,d])=>{ if (!sentToday(c, d)) o.reviewed = false; });
   saveAI(); renderAI();
 });
 $("aiSendReviewed").addEventListener("click", async ()=>{
-  const date = $("dateSel").value;
-  const targets = aiItems().filter(([c,o])=>o.reviewed && !sentToday(c, date));
+  const targets = aiItems().filter(([c,o,d])=>o.reviewed && !sentToday(c, d));
   if (!targets.length){ $("aiSendStatus").textContent = "점검 완료로 표시한 학생이 없습니다."; return; }
   const highN = targets.filter(([,o])=>o.level==="높음").length;
-  if (!confirm(`${date}\n점검 완료한 ${targets.length}명에게 상담 초안을 보냅니다. (관심 높음 ${highN}명)\n학생은 다음 로그인 때 "선생님의 한마디"로 보게 됩니다.\n계속할까요?`)) return;
+  if (!confirm(`${weekLabel($("dateSel").value)}\n점검 완료한 ${targets.length}명에게 상담 초안을 보냅니다. (관심 높음 ${highN}명)\n학생은 다음 로그인 때 "선생님의 한마디"로 보게 됩니다.\n계속할까요?`)) return;
   const btn = $("aiSendReviewed"); btn.disabled = true;
   let ok = 0, fail = 0;
-  for (const [code] of targets){
+  for (const [code,,date] of targets){
     $("aiSendStatus").textContent = `보내는 중… ${ok+fail+1}/${targets.length}`;
     try{ await sendCounsel(date, code); ok++; }
     catch(e){ fail++; console.error(code, e); }
@@ -844,7 +884,6 @@ $("aiSendReviewed").addEventListener("click", async ()=>{
   renderAI();
   $("aiSendStatus").textContent = `완료 — 보냄 ${ok}명` + (fail ? `, 실패 ${fail}명 (다시 눌러 재시도)` : "");
 });
-
 $("dateSel").addEventListener("change", ()=>{ typeFilter = null; render(); });
 $("classSel").addEventListener("change", ()=>{ typeFilter = null; render(); });
 $("gradeSel").addEventListener("change", ()=>{ fillClassOptions(); typeFilter = null; render(); });
